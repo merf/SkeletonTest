@@ -13,8 +13,7 @@ void main()
 
 	VertexPos = gl_ModelViewMatrix * gl_Vertex;
 
-	vec4 light_pos = gl_ModelViewMatrix * gl_LightSource[0].position;
-	LightVec = light_pos - VertexPos;
+	LightVec = gl_LightSource[0].position - VertexPos;
 
 	RawVertexPos = gl_Vertex;
 

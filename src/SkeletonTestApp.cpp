@@ -13,6 +13,10 @@ using namespace ci::app;
 
 using std::vector;
 
+Vec4f light_pos;
+ColorA light_color = ColorA::white();
+ColorA diffuse_color = ColorA::white();
+
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -87,47 +91,43 @@ void SkeltonTestApp::update()
 //////////////////////////////////////////////////////////////////////////
 void SkeltonTestApp::draw()
 {
+	glEnable(GL_COLOR_MATERIAL);
+	
+	Vec4f light_pos = Vec4f(1 * sin(getElapsedSeconds()), -1 * cos(getElapsedSeconds()), 3.0f, 1.0f);
+
 	gl::clear();
 	
 	gl::pushMatrices();
 	
-	Vec4f light_pos = Vec4f(3 * sin(getElapsedSeconds()), 1.0, 3.0f, 1.0f);
-	ColorA light_color = ColorA::white();
-	ColorA diffuse_color = ColorA::white();
-	
-	/*
-	glLightfv(GL_LIGHT0, GL_POSITION, light_pos.ptr() );
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_color.ptr());
-	
-	glLightfv(GL_LIGHT0, GL_SPECULAR, ColorA(1.0, 1.0, 1.0, 1.0));
-	
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_color.ptr());	
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_color.ptr());
-	
-	ColorA ambient_color = (diffuse_color * ColorA(0.5f, 0.5f, 1.0f, 1.0f)) * 0.1f;
-	glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_color);
 	
 	glEnable( GL_LIGHTING );
 	glEnable( GL_LIGHT0 );
 	
 	
 	
+	
 	gl::setMatrices(m_Cam);
 	
 	gl::pushModelView();
+
+	glLightfv(GL_LIGHT0, GL_POSITION, light_pos.ptr() );
 	
-	//gl::rotate(Vec3f(0, getElapsedSeconds() * 60, 0));
+	
+
+	gl::rotate(Vec3f(0, getElapsedSeconds() * 60, 0));
 	
 	m_Shader.bind();
 	
-	//gl::draw(m_VboMesh);
 	gl::drawSphere(Vec3f::zero(), 1.0f);
 	
 	gl::popModelView();
 	
 	m_Shader.unbind();
 	
+	
 	glDisable(GL_LIGHT0);
-*/
 	
 	gl::color(light_color);
 	gl::drawSphere(light_pos.xyz(), 0.1f);

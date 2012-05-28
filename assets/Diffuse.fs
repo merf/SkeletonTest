@@ -16,8 +16,6 @@ void main()
 	float d = Lambert(Normal, light_dir.xyz, 0.5);
 
 	vec4 color = d * gl_FrontMaterial.diffuse;
-	//color = vec4(light_dir);
+
 	gl_FragColor = vec4(color);
-	//gl_FragColor = vec4(Normal, 1.0);
-	//gl_FragColor = vec4(1.0);
 }
