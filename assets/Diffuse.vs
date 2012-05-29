@@ -6,9 +6,10 @@ varying vec4 LightVec;
 varying vec4 Color;
 
 attribute vec4 BoneIndices;
-attribute vec4 InVertexPos;
+attribute vec4 BoneWeights;
 
-uniform mat4 BoneTransforms;
+uniform mat4 BoneTransforms[10];
+uniform vec4 BoneColors[10];
 
 
 //uniform mat4 ModelMatrix;
@@ -22,17 +23,14 @@ void main()
 	int i2 = int(BoneIndices.z);
 	int i3 = int(BoneIndices.w);
 	
-	vec4 vertex_pos = gl_Vertex;
+	vec4 vertex_pos = vec4(0);
+	Color = vec4(0);
 	
-	if(BoneIndices.x == 0.0)
+	for(int i=0; i<4; ++i)
 	{
-		vertex_pos = BoneTransforms * gl_Vertex;
-		//vertex_pos += vec4(0,1,0,0);
-		Color = vec4(1,0,0,1);
-	}
-	else
-	{
-		Color = vec4(1);
+		int index = int(BoneIndices[i]);
+		vertex_pos += BoneTransforms[index] * gl_Vertex * BoneWeights[i];
+		Color += BoneColors[index] * BoneWeights[i];
 	}
 
 	RawVertexPos = vertex_pos;

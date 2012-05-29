@@ -13,17 +13,21 @@ using namespace ci::app;
 
 using std::vector;
 
+const int MAX_BONES = 10;
+
 Vec4f light_pos;
 ColorA light_color = ColorA::white();
 ColorA diffuse_color = ColorA::white();
 
 std::vector<Vec3f> verts;
 std::vector<Vec3f> normals;
-std::vector<GLint> indices;
+std::vector<GLushort> indices;
 std::vector<Vec4i> bone_indices;
+std::vector<Vec4f> bone_weights;
 
 GLuint vertex_buffer_id;
 GLuint bone_indices_buffer_id;
+GLuint bone_weights_buffer_id;
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -61,49 +65,65 @@ void SkeltonTestApp::setup()
 	}
 	
 	
-	m_Cam.lookAt(Vec3f(0,0,10), Vec3f::zero());
-	
-	verts.push_back(Vec3f(-1, -1, 0));
-	verts.push_back(Vec3f(1, -1, 0));
-	verts.push_back(Vec3f(-1, 1, 0));
-	verts.push_back(Vec3f(1, 1, 0));
-	
-	normals.push_back(Vec3f(0, 0, 1));
-	normals.push_back(Vec3f(0, 0, 1));
-	normals.push_back(Vec3f(0, 0, 1));
-	normals.push_back(Vec3f(0, 0, 1));
-	
-	indices.push_back(0);
-	indices.push_back(1);
-	indices.push_back(2);
-	
-	indices.push_back(2);
-	indices.push_back(1);
-	indices.push_back(3);
-	
-	bone_indices.push_back(Vec4i(0,0,0,0));
-	bone_indices.push_back(Vec4i(1,1,1,1));
-	bone_indices.push_back(Vec4i(2,2,2,2));
-	bone_indices.push_back(Vec4i(3,3,3,3));
+	m_Cam.lookAt(Vec3f(0,0,25), Vec3f::zero());
+
+	for(int i=0; i<MAX_BONES; ++i)
+	{
+		verts.push_back(Vec3f(-1, i-MAX_BONES/2, 0));
+		verts.push_back(Vec3f(1, i-MAX_BONES/2, 0));
+
+		normals.push_back(Vec3f(0, 0, 1));
+		normals.push_back(Vec3f(0, 0, 1));
+
+		int i0 = i;
+		int i1 = i+1;
+
+		float w0 = 1.0f;
+		float w1 = 0.0f;
+
+		//bone_indices.push_back(Vec4i(i0, i1, 0, 0));
+		//bone_indices.push_back(Vec4i(i0, i1, 0, 0));
+		bone_indices.push_back(Vec4i(i0, i0, i0, i0));
+		bone_indices.push_back(Vec4i(i0, i0, i0, i0));
+
+		bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+		bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+	}
+
+	for(int i=0; i<MAX_BONES-1; ++i)
+	{
+		indices.push_back(i * 2 + 0);
+		indices.push_back(i * 2 + 1);
+		indices.push_back(i * 2 + 2);
+
+		indices.push_back(i * 2 + 2);
+		indices.push_back(i * 2 + 1);
+		indices.push_back(i * 2 + 3);
+	}
 	
 	//m_VboMesh = gl::VboMesh(m_TriMesh);
 	
 	glGenBuffers(1, &vertex_buffer_id);
 	glGenBuffers(1, &bone_indices_buffer_id);
+	glGenBuffers(1, &bone_weights_buffer_id);
 	
+	int num = verts.size();
+
 	//upload data into GL buffers
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
-	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(Vec3f), verts.data()->ptr(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec3f), verts.data()->ptr(), GL_STATIC_DRAW);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
-	glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(Vec4i), bone_indices.data()->ptr(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4i), bone_indices.data()->ptr(), GL_STATIC_DRAW);
 	
+	glBindBuffer(GL_ARRAY_BUFFER, bone_weights_buffer_id);
+	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), bone_weights.data()->ptr(), GL_STATIC_DRAW);
 	
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 	
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_BACK);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -135,64 +155,72 @@ void SkeltonTestApp::draw()
 	gl::pushModelView();
 	
 	glLightfv(GL_LIGHT0, GL_POSITION, light_pos.ptr() );
-	
-	Matrix44f bone_transforms[10];
-	
-	for(int i=0; i<10; ++i)
+
+	Vec4f bone_colors[MAX_BONES];
+	Matrix44f bone_transforms[MAX_BONES];
+
+	for(int i=0; i<MAX_BONES; ++i)
 	{
-		bone_transforms[i] = ci::Matrix44f::identity();
+		float f = i/(float)MAX_BONES;
+
+		bone_transforms[i] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds() + f * M_PI * 2.0f), 0, 0));
+		bone_transforms[i] = ci::Matrix44f::createRotation(Vec3f(0,1,0), getElapsedSeconds() + f * M_PI * 2.0f);
+
+		bone_colors[i] = Vec4f(hsvToRGB(Vec3f(f, 1.0f, 1.0f)));
 	}
 	
-	bone_transforms[0] = ci::Matrix44f::createTranslation(Vec3f(0, sin(getElapsedSeconds()), 0));
+	//bone_transforms[0] = ci::Matrix44f::createTranslation(Vec3f(0, sin(getElapsedSeconds()), 0));
+	//bone_transforms[1] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds()), 0, 0));
 	
 	//gl::rotate(Vec3f(0, getElapsedSeconds() * 60, 0));
 	
 	m_Shader.bind();
 	
-	m_Shader.uniform("BoneTransforms", bone_transforms[0]);
+	m_Shader.uniform("BoneTransforms", bone_transforms, MAX_BONES);
+	m_Shader.uniform("BoneColors", &bone_colors[0], MAX_BONES);
 	
+	//Vertices
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(3, GL_FLOAT, sizeof(Vec3f), 0);
+
+	//Bone Indices
+	GLint bone_indices_loc = m_Shader.getAttribLocation("BoneIndices");
+	if(bone_indices_loc != -1)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
+		glEnableVertexAttribArray(bone_indices_loc);
+		glVertexAttribPointer(bone_indices_loc, 4, GL_INT, GL_FALSE, 0, 0);
+	}
+
+	//Bone Weights
+	GLint bone_weights_loc = m_Shader.getAttribLocation("BoneWeights");
+	if(bone_weights_loc != -1)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, bone_weights_buffer_id);
+		glEnableVertexAttribArray(bone_weights_loc);
+		glVertexAttribPointer(bone_weights_loc, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	}
+
+
+	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, indices.data());
 	
-	GLint bone_indices_id = m_Shader.getAttribLocation("BoneIndices");
-													 
-	glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
-	glEnableVertexAttribArray(bone_indices_id);
-	
-	glVertexAttribPointer(bone_indices_id, 4, GL_INT, GL_FALSE, 0, 0);
-	
-	
-	//gl::drawSphere(Vec3f::zero(), 1.0f);
-	//gl::draw(m_VboMesh);
-		
-	//GLint bone_indices_id = m_Shader.getAttribLocation("BoneIndices");
-	//GLint verts_id = m_Shader.getAttribLocation("InVertexPos");
-	
-	//float* p_verts = verts.data()->ptr();
-	
-	//glVertexAttrib4iv(bone_indices_id, bone_indices.data()->ptr());
-	//glVertexAttrib3fv(verts_id, p_verts);
-	
-	//glEnableVertexAttribArray(bone_indices_id);
-	//glEnableVertexAttribArray(verts_id);
-	
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-	
-	//glDisableVertexAttribArray(bone_indices_id);
-	//glDisableVertexAttribArray(verts_id);
-	
-	//glBindAttribLocation(m_Shader.getHandle(), 0, <#const GLchar *name#>)
-	//glBindAttribLocation(m_Shader, 0,"myVertexPos");
-	
-	//glVertex3fv(0, verts.data());
-	//glVertexAttrib4iv(0, bone_indices.data());
-	
-	//glDrawArrays(, <#GLint first#>, <#GLsizei count#>)
-	
+
 	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableVertexAttribArray(bone_indices_id);
+
+	if(bone_indices_loc != -1)
+	{
+		glDisableVertexAttribArray(bone_indices_loc);
+	}
+
+	if(bone_weights_loc != -1)
+	{
+		glDisableVertexAttribArray(bone_weights_loc);
+	}
 	
+
+
+
 	gl::popModelView();
 	
 	m_Shader.unbind();
