@@ -13,14 +13,14 @@ using namespace ci::app;
 
 using std::vector;
 
-const int MAX_BONES = 10;
+const int MAX_BONES = 3;
 const int VERTS_PER_BONE = 10;
 
 Vec4f light_pos;
 ColorA light_color = ColorA::white();
 ColorA diffuse_color = ColorA::white();
 
-std::vector<Vec3f> verts;
+std::vector<Vec4f> verts;
 std::vector<Vec3f> normals;
 std::vector<GLushort> indices;
 std::vector<Vec4i> bone_indices;
@@ -74,28 +74,31 @@ void SkeltonTestApp::setup()
 	
 	for(int i=0; i<MAX_BONES; ++i)
 	{		
-		int i0 = i;
-		int i1 = (i+1)%MAX_BONES;
+		int i0 = (i+1)%MAX_BONES;
+		int i1 = (i+2)%MAX_BONES;
 		
 		for(int j=0; j<VERTS_PER_BONE; ++j)
 		{
 			float w1 = smoothstep(j/(float)VERTS_PER_BONE);
 			float w0 = 1.0f-w1;
-						
+
 			w0 = 1.0f;
 			w1 = 0.0f;
-			float y = i-MAX_BONES/2 + w1;
-			verts.push_back(Vec3f(-1, y, 0));
-			verts.push_back(Vec3f(1, y, 0));
+
+			float y_f = (i+w1)/(MAX_BONES-1) - 0.5f;
+			float y = y_f * 10;
+
+			verts.push_back(Vec4f(-1, y, 0, 1));
+			verts.push_back(Vec4f(1, y, 0, 1));
 			
 			normals.push_back(Vec3f(0, 0, 1));
 			normals.push_back(Vec3f(0, 0, 1));
 			
-			bone_indices.push_back(Vec4i(i0, i1, i0, i0));
-			bone_indices.push_back(Vec4i(i0, i1, i0, i0));
+			bone_indices.push_back(Vec4i(1, 0, 0, 0));
+			bone_indices.push_back(Vec4i(1, 0, 0, 0));
 			
-			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
-			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+			bone_weights.push_back(Vec4f(w0, i0, 0.0, i1));
+			bone_weights.push_back(Vec4f(w0, i1, 0.0, i1));
 		}
 	}
 	
@@ -123,7 +126,7 @@ void SkeltonTestApp::setup()
 	
 	//upload data into GL buffers
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
-	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec3f), verts.data()->ptr(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), verts.data()->ptr(), GL_STATIC_DRAW);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
 	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4i), bone_indices.data()->ptr(), GL_STATIC_DRAW);
@@ -176,7 +179,11 @@ void SkeltonTestApp::draw()
 		float f = i/(float)MAX_BONES;
 		
 		bone_transforms[i] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds() + f * M_PI * 2.0f), 0, 0));
-		bone_transforms[i] = ci::Matrix44f::createRotation(Vec3f(0,1,0), getElapsedSeconds() + f * M_PI * 2.0f);
+	
+		if(i==0)
+			bone_transforms[i] = ci::Matrix44f::identity();
+
+		//bone_transforms[i] = ci::Matrix44f::createRotation(Vec3f(0,1,0), getElapsedSeconds() + f * M_PI * 2.0f);
 		
 		bone_colors[i] = Vec4f(hsvToRGB(Vec3f(f, 1.0f, 1.0f)));
 	}
@@ -192,9 +199,17 @@ void SkeltonTestApp::draw()
 	m_Shader.uniform("BoneColors", &bone_colors[0], MAX_BONES);
 	
 	//Vertices
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(3, GL_FLOAT, sizeof(Vec3f), 0);
+	GLint vertex_loc = m_Shader.getAttribLocation("inVertex");
+	if(vertex_loc != -1)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
+		glEnableVertexAttribArray(vertex_loc);
+		glVertexAttribPointer(vertex_loc, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	}
+
+	//glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_id);
+	//glEnableClientState(GL_VERTEX_ARRAY);
+	//glVertexPointer(3, GL_FLOAT, sizeof(Vec3f), 0);
 	
 	//Bone Indices
 	GLint bone_indices_loc = m_Shader.getAttribLocation("BoneIndices");

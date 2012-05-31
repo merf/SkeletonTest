@@ -1,12 +1,15 @@
-varying vec3 Normal;
-varying vec4 VertexPos;
-varying vec4 RawVertexPos;
-varying vec4 LightVec;
+#version 130
 
-varying vec4 Color;
+out vec3 Normal;
+out vec4 VertexPos;
+out vec4 RawVertexPos;
+out vec4 LightVec;
 
-attribute vec4 BoneIndices;
-attribute vec4 BoneWeights;
+out vec4 Color;
+
+in ivec4 BoneIndices;
+in vec4 BoneWeights;
+in vec4	inVertex;
 
 uniform mat4 BoneTransforms[10];
 uniform vec4 BoneColors[10];
@@ -16,7 +19,7 @@ uniform vec4 BoneColors[10];
 
 void main() 
 {
-	Normal = gl_NormalMatrix * gl_Normal;
+	//Normal = gl_NormalMatrix * gl_Normal;
 
 	int i0 = int(BoneIndices.x);
 	int i1 = int(BoneIndices.y);
@@ -26,12 +29,39 @@ void main()
 	vec4 vertex_pos = vec4(0);
 	Color = vec4(0);
 	
-	for(int i=0; i<4; ++i)
+
+/*
+	int index = int(BoneWeights[1]);
+	vertex_pos += BoneTransforms[index] * inVertex * BoneWeights[0];
+	Color += BoneColors[index] * BoneWeights[0];
+	*/
+
+	float w = 1.0;
+
+	//for(int i=0; i<1; ++i)
 	{
-		int index = int(BoneIndices[i]);
-		vertex_pos += BoneTransforms[index] * gl_Vertex * BoneWeights[i];
-		Color += BoneColors[index] * BoneWeights[i];
+		//int index = BoneIndices[i];
+
+		int index = int(BoneWeights[1]);
+		float weight = BoneWeights[0];
+
+		vertex_pos += BoneTransforms[index] * inVertex * weight;
+		Color += BoneColors[index] * weight;
+
+		w -= weight;
+
+		index = int(BoneWeights[3]);
+		weight = BoneWeights[2];
+
+		vertex_pos += BoneTransforms[index] * inVertex * weight;
+		Color += BoneColors[index] * weight;
+
+		w -= weight;
 	}
+
+	Color = vec4(BoneWeights.rgb, 1.0);
+
+	vertex_pos += inVertex * w;
 
 	RawVertexPos = vertex_pos;
 

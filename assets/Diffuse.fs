@@ -1,9 +1,8 @@
-varying vec3 Normal;
-varying vec4 VertexPos;
-//varying vec4 RawVertexPos;
-varying vec4 LightVec;
+in vec3 Normal;
+in vec4 VertexPos;
+in vec4 LightVec;
 
-varying vec4 Color;
+in vec4 Color;
 
 float Lambert(vec3 v1, vec3 v2, float f)
 {
