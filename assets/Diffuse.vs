@@ -1,4 +1,5 @@
 #version 130
+#extension GL_EXT_gpu_shader4 : enable
 
 out vec3 Normal;
 out vec4 VertexPos;
@@ -7,7 +8,7 @@ out vec4 LightVec;
 
 out vec4 Color;
 
-in ivec4 BoneIndices;
+in vec4 BoneIndices;
 in vec4 BoneWeights;
 in vec4	inVertex;
 
@@ -29,39 +30,44 @@ void main()
 	vec4 vertex_pos = vec4(0);
 	Color = vec4(0);
 	
-
-/*
-	int index = int(BoneWeights[1]);
-	vertex_pos += BoneTransforms[index] * inVertex * BoneWeights[0];
-	Color += BoneColors[index] * BoneWeights[0];
-	*/
-
 	float w = 1.0;
 
-	//for(int i=0; i<1; ++i)
+	for(int i=0; i<2; ++i)
 	{
-		//int index = BoneIndices[i];
+		int j = i;
 
-		int index = int(BoneWeights[1]);
-		float weight = BoneWeights[0];
+		int index = int(BoneIndices[j]);
+		float weight = BoneWeights[j];
 
-		vertex_pos += BoneTransforms[index] * inVertex * weight;
-		Color += BoneColors[index] * weight;
-
-		w -= weight;
-
-		index = int(BoneWeights[3]);
-		weight = BoneWeights[2];
+		//weight = 1.0;
+		//index = 0;
 
 		vertex_pos += BoneTransforms[index] * inVertex * weight;
 		Color += BoneColors[index] * weight;
-
 		w -= weight;
 	}
 
-	Color = vec4(BoneWeights.rgb, 1.0);
+	//Color += vec4(0, 0, w, 1);
+		
+	/*
+	int indy = int(BoneIndices[1]);
+	vertex_pos = BoneTransforms[indy] * inVertex;
 
-	vertex_pos += inVertex * w;
+	if(indy%3 == 0)
+	{
+		Color = vec4(1,0,0,1);
+	}
+	else if(indy%3 == 1)
+	{
+		Color = vec4(0,0,1,1);
+	}
+	else
+	{
+		Color = vec4(0,1,0,1);
+	}
+	*/
+
+	//vertex_pos += inVertex * w;
 
 	RawVertexPos = vertex_pos;
 

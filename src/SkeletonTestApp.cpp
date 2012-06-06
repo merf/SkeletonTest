@@ -13,8 +13,8 @@ using namespace ci::app;
 
 using std::vector;
 
-const int MAX_BONES = 3;
-const int VERTS_PER_BONE = 10;
+const int MAX_BONES = 10;
+const int VERTS_PER_BONE = 5;
 
 Vec4f light_pos;
 ColorA light_color = ColorA::white();
@@ -23,7 +23,7 @@ ColorA diffuse_color = ColorA::white();
 std::vector<Vec4f> verts;
 std::vector<Vec3f> normals;
 std::vector<GLushort> indices;
-std::vector<Vec4i> bone_indices;
+std::vector<Vec4f> bone_indices;
 std::vector<Vec4f> bone_weights;
 
 GLuint vertex_buffer_id;
@@ -74,18 +74,19 @@ void SkeltonTestApp::setup()
 	
 	for(int i=0; i<MAX_BONES; ++i)
 	{		
-		int i0 = (i+1)%MAX_BONES;
-		int i1 = (i+2)%MAX_BONES;
+		int i0 = (i)%MAX_BONES;
+		int i1 = (i+1)%MAX_BONES;
 		
 		for(int j=0; j<VERTS_PER_BONE; ++j)
 		{
-			float w1 = smoothstep(j/(float)VERTS_PER_BONE);
+			float f = j/(float)VERTS_PER_BONE;
+			float w1 = smoothstep(f);
 			float w0 = 1.0f-w1;
 
-			w0 = 1.0f;
-			w1 = 0.0f;
+			//w0 = 1.0f;
+			//w1 = 0.0f;
 
-			float y_f = (i+w1)/(MAX_BONES-1) - 0.5f;
+			float y_f = (i+f)/(MAX_BONES-1) - 0.5f;
 			float y = y_f * 10;
 
 			verts.push_back(Vec4f(-1, y, 0, 1));
@@ -93,12 +94,34 @@ void SkeltonTestApp::setup()
 			
 			normals.push_back(Vec3f(0, 0, 1));
 			normals.push_back(Vec3f(0, 0, 1));
+
+			//bone_weights.push_back(Vec4f(hsvToRGB(Vec3f(w0, 1.0f, 1.0f))));
+			//bone_weights.push_back(Vec4f(hsvToRGB(Vec3f(w0, 1.0f, 1.0f))));
 			
-			bone_indices.push_back(Vec4i(1, 0, 0, 0));
-			bone_indices.push_back(Vec4i(1, 0, 0, 0));
+			bone_indices.push_back(Vec4f(i0, i1, 0, 0));
+			bone_indices.push_back(Vec4f(i0, i1, 0, 0));
 			
-			bone_weights.push_back(Vec4f(w0, i0, 0.0, i1));
-			bone_weights.push_back(Vec4f(w0, i1, 0.0, i1));
+			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+
+			/*
+			if(i==0)
+			{
+				bone_weights.push_back(Vec4f(0.0, 0.0, 0.0, 0.0));
+				bone_weights.push_back(Vec4f(0.0, 0.0, 0.0, 0.0));
+			}
+			else if(i==1)
+			{
+				bone_weights.push_back(Vec4f(1.0, 0.0, 0.0, 0.0));
+				bone_weights.push_back(Vec4f(1.0, 0.0, 0.0, 0.0));
+			}
+			else
+			{
+				bone_weights.push_back(Vec4f(2.0, 0.0, 0.0, 0.0));
+				bone_weights.push_back(Vec4f(2.0, 0.0, 0.0, 0.0));
+			}
+			*/
+
 		}
 	}
 	
@@ -129,7 +152,7 @@ void SkeltonTestApp::setup()
 	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), verts.data()->ptr(), GL_STATIC_DRAW);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
-	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4i), bone_indices.data()->ptr(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), bone_indices.data()->ptr(), GL_STATIC_DRAW);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, bone_weights_buffer_id);
 	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), bone_weights.data()->ptr(), GL_STATIC_DRAW);
@@ -149,7 +172,8 @@ void SkeltonTestApp::update()
 //////////////////////////////////////////////////////////////////////////
 void SkeltonTestApp::draw()
 {
-	
+	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
 	Vec4f light_pos = Vec4f(1 * sin(getElapsedSeconds()), -1 * cos(getElapsedSeconds()), 3.0f, 1.0f);
 	
 	gl::clear();
@@ -180,8 +204,8 @@ void SkeltonTestApp::draw()
 		
 		bone_transforms[i] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds() + f * M_PI * 2.0f), 0, 0));
 	
-		if(i==0)
-			bone_transforms[i] = ci::Matrix44f::identity();
+		//if(i==0)
+			//bone_transforms[i] = ci::Matrix44f::identity();
 
 		//bone_transforms[i] = ci::Matrix44f::createRotation(Vec3f(0,1,0), getElapsedSeconds() + f * M_PI * 2.0f);
 		
@@ -217,7 +241,7 @@ void SkeltonTestApp::draw()
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, bone_indices_buffer_id);
 		glEnableVertexAttribArray(bone_indices_loc);
-		glVertexAttribPointer(bone_indices_loc, 4, GL_INT, GL_FALSE, 0, 0);
+		glVertexAttribPointer(bone_indices_loc, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	}
 	
 	//Bone Weights
