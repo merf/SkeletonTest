@@ -8,13 +8,16 @@
 #include "cinder/Camera.h"
 #include "cinder/ImageIo.h"
 
+#include "cinder/Rand.h"
+
 using namespace ci;
 using namespace ci::app;
 
 using std::vector;
 
-const int MAX_BONES = 10;
-const int VERTS_PER_BONE = 5;
+const int MAX_BONES = 3;
+const int VERTS_PER_BONE = 2;
+const int RADIUS_VERTS = 3;
 
 Vec4f light_pos;
 ColorA light_color = ColorA::white();
@@ -26,13 +29,20 @@ std::vector<GLushort> indices;
 std::vector<Vec4f> bone_indices;
 std::vector<Vec4f> bone_weights;
 
+
+Vec4f bone_colors[MAX_BONES];
+Matrix44f bone_transforms_ms[MAX_BONES];
+Matrix44f bone_transforms_ls[MAX_BONES];
+Matrix44f ref_pose[MAX_BONES];
+Matrix44f inv_ref_pose[MAX_BONES];
+
 GLuint vertex_buffer_id;
 GLuint bone_indices_buffer_id;
 GLuint bone_weights_buffer_id;
 
 float smoothstep(float t)
 {
-	return t * t * (3.0 - 2.0 * t);
+	return t * t * (3.0f - 2.0f * t);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -71,11 +81,18 @@ void SkeltonTestApp::setup()
 	
 	
 	m_Cam.lookAt(Vec3f(0,0,25), Vec3f::zero());
-	
+
 	for(int i=0; i<MAX_BONES; ++i)
 	{		
 		int i0 = (i)%MAX_BONES;
 		int i1 = (i+1)%MAX_BONES;
+
+		float y_f_bone = i/(float)(MAX_BONES-1) - 0.5f;
+		float y_bone = y_f_bone * 10;
+		Matrix44f m = Matrix44f::createTranslation(Vec3f(0,y_bone,0));
+		ref_pose[i] = m;
+		m.invert();
+		inv_ref_pose[i] = m;
 		
 		for(int j=0; j<VERTS_PER_BONE; ++j)
 		{
@@ -89,53 +106,48 @@ void SkeltonTestApp::setup()
 			float y_f = (i+f)/(MAX_BONES-1) - 0.5f;
 			float y = y_f * 10;
 
-			verts.push_back(Vec4f(-1, y, 0, 1));
-			verts.push_back(Vec4f(1, y, 0, 1));
-			
-			normals.push_back(Vec3f(0, 0, 1));
-			normals.push_back(Vec3f(0, 0, 1));
-
-			//bone_weights.push_back(Vec4f(hsvToRGB(Vec3f(w0, 1.0f, 1.0f))));
-			//bone_weights.push_back(Vec4f(hsvToRGB(Vec3f(w0, 1.0f, 1.0f))));
-			
-			bone_indices.push_back(Vec4f(i0, i1, 0, 0));
-			bone_indices.push_back(Vec4f(i0, i1, 0, 0));
-			
-			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
-			bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
-
-			/*
-			if(i==0)
+			for(int k=0; k<RADIUS_VERTS; ++k)
 			{
-				bone_weights.push_back(Vec4f(0.0, 0.0, 0.0, 0.0));
-				bone_weights.push_back(Vec4f(0.0, 0.0, 0.0, 0.0));
-			}
-			else if(i==1)
-			{
-				bone_weights.push_back(Vec4f(1.0, 0.0, 0.0, 0.0));
-				bone_weights.push_back(Vec4f(1.0, 0.0, 0.0, 0.0));
-			}
-			else
-			{
-				bone_weights.push_back(Vec4f(2.0, 0.0, 0.0, 0.0));
-				bone_weights.push_back(Vec4f(2.0, 0.0, 0.0, 0.0));
-			}
-			*/
+				float angle0 = k/(float)RADIUS_VERTS*M_PI*2.0f;
+				float angle1 = (k+1)/(float)RADIUS_VERTS*M_PI*2.0f;
 
+				verts.push_back(Vec4f(cos(angle0), y, -sin(angle0), 1));
+				//verts.push_back(Vec4f(cos(angle1), y, -sin(angle1), 1));
+
+				//TODO - normals
+				normals.push_back(Vec3f(0, 0, 1));
+				//normals.push_back(Vec3f(0, 0, 1));
+
+				bone_indices.push_back(Vec4f(i0, i1, 0, 0));
+				//bone_indices.push_back(Vec4f(i0, i1, 0, 0));
+
+				bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+				//bone_weights.push_back(Vec4f(w0, w1, 0.0f, 0.0f));
+			}
 		}
 	}
+
+	int num_verts = verts.size();
 	
 	for(int i=0; i<MAX_BONES-1; ++i)
 	{
 		for(int j=0; j<VERTS_PER_BONE; ++j)
 		{
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 0);
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 1);
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 2);
-			
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 2);
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 1);
-			indices.push_back((j + i * VERTS_PER_BONE) * 2 + 3);
+			for(int k=0; k<RADIUS_VERTS; ++k)
+			{
+				//indices.push_back(((k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) + 0) % num_verts);
+				//indices.push_back(((k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) + 1) % num_verts);
+				//indices.push_back(((k + (j+1) * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) + 0) % num_verts);
+
+				indices.push_back( (k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) + 1);
+				indices.push_back( ((k + (j+1) * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) + 1) % (RADIUS_VERTS*2*(j+1)));
+				indices.push_back( ((k + (j+1) * RADIUS_VERTS) + i * VERTS_PER_BONE * RADIUS_VERTS) + 0);
+
+
+				//indices.push_back((k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) * 2 + 1);
+				//indices.push_back((1 + k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) * 2 + 1);
+				//indices.push_back((1 + k + j * RADIUS_VERTS + i * VERTS_PER_BONE * RADIUS_VERTS) * 2 + 0);
+			}
 		}
 	}
 	
@@ -156,9 +168,17 @@ void SkeltonTestApp::setup()
 	
 	glBindBuffer(GL_ARRAY_BUFFER, bone_weights_buffer_id);
 	glBufferData(GL_ARRAY_BUFFER, num * sizeof(Vec4f), bone_weights.data()->ptr(), GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
+
+	for(int i=0; i<MAX_BONES; ++i)
+	{
+		bone_colors[i] = Vec4f(hsvToRGB(Vec3f(ci::randFloat(0.0f, 1.0f), 1.0f, 1.0f)));
+	}
+
 	
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
@@ -172,7 +192,7 @@ void SkeltonTestApp::update()
 //////////////////////////////////////////////////////////////////////////
 void SkeltonTestApp::draw()
 {
-	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+	//glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
 	Vec4f light_pos = Vec4f(1 * sin(getElapsedSeconds()), -1 * cos(getElapsedSeconds()), 3.0f, 1.0f);
 	
@@ -186,40 +206,28 @@ void SkeltonTestApp::draw()
 	glEnable( GL_LIGHTING );
 	glEnable( GL_LIGHT0 );
 	
-	
-	
-	
 	gl::setMatrices(m_Cam);
 	
 	gl::pushModelView();
 	
 	glLightfv(GL_LIGHT0, GL_POSITION, light_pos.ptr() );
 	
-	Vec4f bone_colors[MAX_BONES];
-	Matrix44f bone_transforms[MAX_BONES];
-	
 	for(int i=0; i<MAX_BONES; ++i)
 	{
 		float f = i/(float)MAX_BONES;
 		
-		bone_transforms[i] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds() + f * M_PI * 2.0f), 0, 0));
-	
-		//if(i==0)
-			//bone_transforms[i] = ci::Matrix44f::identity();
+		//bone_transforms_ms[i] = Matrix44f::createRotation(Vec3f(0, 0, 0.2f * (i%2==0 ? 1 : -1) * sin(getElapsedSeconds()))) * ref_pose[i];
+		bone_transforms_ms[i] = Matrix44f::createTranslation(Vec3f((i%2==0 ? 1 : -1) * sin(getElapsedSeconds() * 5), 0, 0)) * ref_pose[i];
+		bone_transforms_ls[i] = inv_ref_pose[i] * bone_transforms_ms[i];
 
-		//bone_transforms[i] = ci::Matrix44f::createRotation(Vec3f(0,1,0), getElapsedSeconds() + f * M_PI * 2.0f);
-		
-		bone_colors[i] = Vec4f(hsvToRGB(Vec3f(f, 1.0f, 1.0f)));
+		//bone_transforms[i] = Matrix44f::identity();
 	}
-	
-	//bone_transforms[0] = ci::Matrix44f::createTranslation(Vec3f(0, sin(getElapsedSeconds()), 0));
-	//bone_transforms[1] = ci::Matrix44f::createTranslation(Vec3f(sin(getElapsedSeconds()), 0, 0));
 	
 	//gl::rotate(Vec3f(0, getElapsedSeconds() * 60, 0));
 	
 	m_Shader.bind();
 	
-	m_Shader.uniform("BoneTransforms", bone_transforms, MAX_BONES);
+	m_Shader.uniform("BoneTransforms", bone_transforms_ls, MAX_BONES);
 	m_Shader.uniform("BoneColors", &bone_colors[0], MAX_BONES);
 	
 	//Vertices
@@ -267,21 +275,33 @@ void SkeltonTestApp::draw()
 	{
 		glDisableVertexAttribArray(bone_weights_loc);
 	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	
-	
-	
-	
-	gl::popModelView();
 	
 	m_Shader.unbind();
+
+	glDisable(GL_LIGHTING);
 	
-	
-	glDisable(GL_LIGHT0);
-	
-	glEnable(GL_COLOR_MATERIAL);
-	gl::color(light_color);
-	gl::drawSphere(light_pos.xyz(), 0.1f);
-	
+	for(int i=0; i<MAX_BONES; ++i)
+	{
+		glColor4f(bone_colors[i].x, bone_colors[i].y, bone_colors[i].z, bone_colors[i].w);
+
+		Matrix44f m = bone_transforms_ms[i];
+		//Matrix44f m = bone_transforms[i];
+		Vec3f bone_pos = Vec3f::zero();
+		bone_pos = m.transformPoint(bone_pos);
+		gl::drawSphere(bone_pos, 0.25f);
+	}
+
+
+
+	gl::popModelView();
+
+	//glEnable(GL_COLOR_MATERIAL);
+	//gl::color(light_color);
+	//gl::drawSphere(light_pos.xyz(), 0.1f);
+
 	gl::popMatrices();
 }
 
