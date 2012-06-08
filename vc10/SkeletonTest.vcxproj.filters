@@ -39,5 +39,11 @@
     <None Include="..\assets\Diffuse.vs">
       <Filter>assets</Filter>
     </None>
+    <None Include="..\assets\Skinned.fs">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="..\assets\Skinned.vs">
+      <Filter>assets</Filter>
+    </None>
   </ItemGroup>
 </Project>

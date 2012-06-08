@@ -115,6 +115,8 @@
   <ItemGroup>
     <None Include="..\assets\Diffuse.fs" />
     <None Include="..\assets\Diffuse.vs" />
+    <None Include="..\assets\Skinned.fs" />
+    <None Include="..\assets\Skinned.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
